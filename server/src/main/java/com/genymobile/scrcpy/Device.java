@@ -77,15 +77,26 @@ public final class Device {
         ScreenInfo screenInfo = getScreenInfo(); // read with synchronization
         Size videoSize = screenInfo.getVideoSize();
         Size clientVideoSize = position.getScreenSize();
-        if (!videoSize.equals(clientVideoSize)) {
-            // The client sends a click relative to a video with wrong dimensions,
-            // the device may have been rotated since the event was generated, so ignore the event
+        int clientWidth = clientVideoSize.getWidth();
+        int clientHeight = clientVideoSize.getHeight();
+        if (clientWidth <= 0 || clientHeight <= 0) {
             return null;
         }
+
+        // Some KitKat decoders expose a video frame cropped by a few pixels.
+        // Accept it only if its orientation and aspect ratio still match the
+        // current screen, so events from before a rotation remain rejected.
+        boolean sameOrientation = (videoSize.getWidth() > videoSize.getHeight()) == (clientWidth > clientHeight);
+        long expectedAspect = (long) videoSize.getWidth() * clientHeight;
+        long clientAspect = (long) clientWidth * videoSize.getHeight();
+        if (!sameOrientation || Math.abs(expectedAspect - clientAspect) * 100 > expectedAspect) {
+            return null;
+        }
+
         Size deviceSize = screenInfo.getDeviceSize();
         Point point = position.getPoint();
-        int scaledX = point.x * deviceSize.getWidth() / videoSize.getWidth();
-        int scaledY = point.y * deviceSize.getHeight() / videoSize.getHeight();
+        int scaledX = (int) ((long) point.x * deviceSize.getWidth() / clientWidth);
+        int scaledY = (int) ((long) point.y * deviceSize.getHeight() / clientHeight);
         return new Point(scaledX, scaledY);
     }
 

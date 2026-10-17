@@ -1,5 +1,7 @@
 #include "convert.h"
 
+#include <SDL2/SDL_version.h>
+
 #define MAP(FROM, TO) case FROM: *to = TO; return SDL_TRUE
 #define FAIL default: return SDL_FALSE
 
@@ -172,11 +174,26 @@ SDL_bool mouse_wheel_from_sdl_to_android(const SDL_MouseWheelEvent *from,
     to->scroll_event.position = position;
 
     int mul = from->direction == SDL_MOUSEWHEEL_NORMAL ? 1 : -1;
+#if SDL_VERSION_ATLEAST(2, 0, 18)
+    float x = from->preciseX;
+    float y = from->preciseY;
+    // Preserve integer-only wheel events from SDL backends that do not fill
+    // the precise fields.
+    if (x == 0.0f && from->x != 0) {
+        x = from->x;
+    }
+    if (y == 0.0f && from->y != 0) {
+        y = from->y;
+    }
+#else
+    float x = from->x;
+    float y = from->y;
+#endif
     // SDL behavior seems inconsistent between horizontal and vertical scrolling
     // so reverse the horizontal
     // <https://wiki.libsdl.org/SDL_MouseWheelEvent#Remarks>
-    to->scroll_event.hscroll = -mul * from->x;
-    to->scroll_event.vscroll = mul * from->y;
+    to->scroll_event.hscroll = -mul * x;
+    to->scroll_event.vscroll = mul * y;
 
     return SDL_TRUE;
 }

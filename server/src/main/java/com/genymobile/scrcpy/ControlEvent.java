@@ -20,8 +20,8 @@ public final class ControlEvent {
     private int keycode; // KeyEvent.KEYCODE_*
     private int buttons; // MotionEvent.BUTTON_*
     private Position position;
-    private int hScroll;
-    private int vScroll;
+    private float hScroll;
+    private float vScroll;
 
     private ControlEvent() {
     }
@@ -51,7 +51,7 @@ public final class ControlEvent {
         return event;
     }
 
-    public static ControlEvent createScrollControlEvent(Position position, int hScroll, int vScroll) {
+    public static ControlEvent createScrollControlEvent(Position position, float hScroll, float vScroll) {
         ControlEvent event = new ControlEvent();
         event.type = TYPE_SCROLL;
         event.position = position;
@@ -95,11 +95,11 @@ public final class ControlEvent {
         return position;
     }
 
-    public int getHScroll() {
+    public float getHScroll() {
         return hScroll;
     }
 
-    public int getVScroll() {
+    public float getVScroll() {
         return vScroll;
     }
 }

@@ -8,25 +8,29 @@
 //
 // See my question:
 // <https://stackoverflow.com/questions/49111054/how-to-get-mouse-position-on-mouse-wheel-event>
-static void convert_to_renderer_coordinates(SDL_Renderer *renderer, int *x, int *y) {
+static SDL_bool get_renderer_point(struct screen *screen, int x, int y,
+                                   struct point *point) {
     SDL_Rect viewport;
     float scale_x, scale_y;
-    SDL_RenderGetViewport(renderer, &viewport);
-    SDL_RenderGetScale(renderer, &scale_x, &scale_y);
-    *x = (int) (*x / scale_x) - viewport.x;
-    *y = (int) (*y / scale_y) - viewport.y;
-}
+    SDL_RenderGetViewport(screen->renderer, &viewport);
+    SDL_RenderGetScale(screen->renderer, &scale_x, &scale_y);
+    if (!(scale_x > 0.0f) || !(scale_y > 0.0f)) {
+        return SDL_FALSE;
+    }
 
-static struct point get_mouse_point(struct screen *screen) {
-    int x;
-    int y;
-    SDL_GetMouseState(&x, &y);
-    convert_to_renderer_coordinates(screen->renderer, &x, &y);
-    SDL_assert_release(x >= 0 && x < 0x10000 && y >= 0 && y < 0x10000);
-    return (struct point) {
-        .x = (Uint16) x,
-        .y = (Uint16) y,
-    };
+    double renderer_x = (double) x / scale_x - viewport.x;
+    double renderer_y = (double) y / scale_y - viewport.y;
+    if (renderer_x < 0 || renderer_x >= screen->frame_size.width ||
+            renderer_y < 0 || renderer_y >= screen->frame_size.height ||
+            renderer_x >= 0x10000 || renderer_y >= 0x10000) {
+        // A wheel event can be delivered while the pointer is outside the video.
+        // Do not serialize an invalid position as a 16-bit Android coordinate.
+        return SDL_FALSE;
+    }
+
+    point->x = (Uint16) renderer_x;
+    point->y = (Uint16) renderer_y;
+    return SDL_TRUE;
 }
 
 static SDL_bool is_ctrl_down(void) {
@@ -264,10 +268,24 @@ void input_manager_process_mouse_button(struct input_manager *input_manager,
 
 void input_manager_process_mouse_wheel(struct input_manager *input_manager,
                                        const SDL_MouseWheelEvent *event) {
+    int x;
+    int y;
+#if SDL_VERSION_ATLEAST(2, 26, 0)
+    // Use the position captured with this wheel event, rather than a later
+    // global mouse position which may already be outside the window.
+    x = event->mouseX;
+    y = event->mouseY;
+#else
+    SDL_GetMouseState(&x, &y);
+#endif
+
     struct position position = {
         .screen_size = input_manager->screen->frame_size,
-        .point = get_mouse_point(input_manager->screen),
     };
+    if (!get_renderer_point(input_manager->screen, x, y, &position.point)) {
+        return;
+    }
+
     struct control_event control_event;
     if (mouse_wheel_from_sdl_to_android(event, position, &control_event)) {
         if (!controller_push_event(input_manager->controller, &control_event)) {

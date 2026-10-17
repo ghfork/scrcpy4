@@ -6,6 +6,7 @@
 #include <SDL2/SDL_assert.h>
 #include <SDL2/SDL_timer.h>
 
+#include "common.h"
 #include "config.h"
 #include "log.h"
 #include "net.h"
@@ -38,9 +39,10 @@ static SDL_bool remove_server(const char *serial) {
     return process_check_success(process, "adb shell rm");
 }
 
-static SDL_bool enable_tunnel_reverse(const char *serial, Uint16 local_port) {
-    process_t process = adb_reverse(serial, SOCKET_NAME, local_port);
-    return process_check_success(process, "adb reverse");
+static SDL_bool prepare_server(const char *serial) {
+    const char *const cmd[] = {"shell", "mkdir", "-p", "/data/local/tmp/dalvik-cache"};
+    process_t process = adb_execute(serial, cmd, ARRAY_LEN(cmd));
+    return process_check_success(process, "adb shell mkdir");
 }
 
 static SDL_bool disable_tunnel_reverse(const char *serial) {
@@ -59,11 +61,7 @@ static SDL_bool disable_tunnel_forward(const char *serial, Uint16 local_port) {
 }
 
 static SDL_bool enable_tunnel(struct server *server) {
-    if (enable_tunnel_reverse(server->serial, server->local_port)) {
-        return SDL_TRUE;
-    }
-
-    LOGW("'adb reverse' failed, fallback to 'adb forward'");
+    // Android 4.4's adbd does not support reverse; use the supported direction directly.
     server->tunnel_forward = SDL_TRUE;
     return enable_tunnel_forward(server->serial, server->local_port);
 }
@@ -83,6 +81,7 @@ static process_t execute_server(const char *serial,
     sprintf(bit_rate_string, "%"PRIu32, bit_rate);
     const char *const cmd[] = {
         "shell",
+        "ANDROID_DATA=/data/local/tmp",
         "CLASSPATH=/data/local/tmp/scrcpy-server.jar",
         "app_process",
         "/", // unused
@@ -158,6 +157,10 @@ SDL_bool server_start(struct server *server, const char *serial, Uint16 local_po
     }
 
     server->server_copied_to_device = SDL_TRUE;
+
+    if (!prepare_server(serial)) {
+        return SDL_FALSE;
+    }
 
     if (!enable_tunnel(server)) {
         return SDL_FALSE;

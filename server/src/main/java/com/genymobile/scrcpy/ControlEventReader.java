@@ -118,8 +118,8 @@ public class ControlEventReader {
             return null;
         }
         Position position = readPosition(buffer);
-        int hScroll = buffer.getInt();
-        int vScroll = buffer.getInt();
+        float hScroll = buffer.getFloat();
+        float vScroll = buffer.getFloat();
         return ControlEvent.createScrollControlEvent(position, hScroll, vScroll);
     }
 

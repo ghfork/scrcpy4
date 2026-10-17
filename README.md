@@ -1,5 +1,7 @@
 # scrcpy
 
+[简体中文](README.zh.md)
+
 This application provides display and control of Android devices connected on
 USB. It does not require any _root_ access. It works on _GNU/Linux_, _Windows_
 and _MacOS_.

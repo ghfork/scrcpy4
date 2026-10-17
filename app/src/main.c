@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 #include <unistd.h>
+#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <SDL2/SDL.h>
 
@@ -271,7 +272,9 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
+#if LIBAVFORMAT_VERSION_MAJOR < 59
     av_register_all();
+#endif
 
     if (avformat_network_init()) {
         return 1;

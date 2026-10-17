@@ -1,5 +1,6 @@
 #include "decoder.h"
 
+#include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <SDL2/SDL_events.h>
 #include <SDL2/SDL_mutex.h>
@@ -41,7 +42,7 @@ static void notify_stopped(void) {
 static int run_decoder(void *data) {
     struct decoder *decoder = data;
 
-    AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_H264);
+    const AVCodec *codec = avcodec_find_decoder(AV_CODEC_ID_H264);
     if (!codec) {
         LOGE("H.264 decoder not found");
         goto run_end;
@@ -86,10 +87,7 @@ static int run_decoder(void *data) {
         goto run_finally_free_avio_ctx;
     }
 
-    AVPacket packet;
-    av_init_packet(&packet);
-    packet.data = NULL;
-    packet.size = 0;
+    AVPacket packet = { 0 };
 
     while (!av_read_frame(format_ctx, &packet)) {
 // the new decoding/encoding API has been introduced by:
@@ -140,7 +138,6 @@ run_finally_free_avio_ctx:
 run_finally_free_format_ctx:
     avformat_free_context(format_ctx);
 run_finally_close_codec:
-    avcodec_close(codec_ctx);
 run_finally_free_codec_ctx:
     avcodec_free_context(&codec_ctx);
     notify_stopped();

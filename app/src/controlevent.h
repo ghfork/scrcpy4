@@ -40,8 +40,8 @@ struct control_event {
         } mouse_event;
         struct {
             struct position position;
-            Sint32 hscroll;
-            Sint32 vscroll;
+            float hscroll;
+            float vscroll;
         } scroll_event;
         struct {
             int action;

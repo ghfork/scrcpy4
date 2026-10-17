@@ -17,6 +17,12 @@ static inline void write32(Uint8 *buf, Uint32 value) {
     buf[3] = value;
 }
 
+static inline void write_float(Uint8 *buf, float value) {
+    Uint32 bits;
+    memcpy(&bits, &value, sizeof(bits));
+    write32(buf, bits);
+}
+
 static void write_position(Uint8 *buf, const struct position *position) {
     write16(&buf[0], position->point.x);
     write16(&buf[2], position->point.y);
@@ -50,8 +56,9 @@ int control_event_serialize(const struct control_event *event, unsigned char *bu
             return 14;
         case CONTROL_EVENT_TYPE_SCROLL:
             write_position(&buf[1], &event->scroll_event.position);
-            write32(&buf[9], (Uint32) event->scroll_event.hscroll);
-            write32(&buf[13], (Uint32) event->scroll_event.vscroll);
+            // Scroll deltas are IEEE-754 floats in network byte order.
+            write_float(&buf[9], event->scroll_event.hscroll);
+            write_float(&buf[13], event->scroll_event.vscroll);
             return 17;
         case CONTROL_EVENT_TYPE_COMMAND:
             buf[1] = event->command_event.action;

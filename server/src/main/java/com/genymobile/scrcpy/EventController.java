@@ -15,6 +15,8 @@ import java.io.IOException;
 
 public class EventController {
 
+    private static final float SCROLL_SPEED = 0.35f;
+
     private final Device device;
     private final DesktopConnection connection;
 
@@ -47,7 +49,7 @@ public class EventController {
         coords.y = point.y;
     }
 
-    private void setScroll(int hScroll, int vScroll) {
+    private void setScroll(float hScroll, float vScroll) {
         MotionEvent.PointerCoords coords = pointerCoords[0];
         coords.setAxisValue(MotionEvent.AXIS_HSCROLL, hScroll);
         coords.setAxisValue(MotionEvent.AXIS_VSCROLL, vScroll);
@@ -72,7 +74,7 @@ public class EventController {
                 injectText(controlEvent.getText());
                 break;
             case ControlEvent.TYPE_MOUSE:
-                injectMouse(controlEvent.getAction(), controlEvent.getButtons(), controlEvent.getPosition());
+                injectMouse(controlEvent.getAction(), controlEvent.getPosition());
                 break;
             case ControlEvent.TYPE_SCROLL:
                 injectScroll(controlEvent.getPosition(), controlEvent.getHScroll(), controlEvent.getVScroll());
@@ -113,7 +115,7 @@ public class EventController {
         return true;
     }
 
-    private boolean injectMouse(int action, int buttons, Position position) {
+    private synchronized boolean injectMouse(int action, Position position) {
         long now = SystemClock.uptimeMillis();
         if (action == MotionEvent.ACTION_DOWN) {
             lastMouseDown = now;
@@ -124,20 +126,23 @@ public class EventController {
             return false;
         }
         setPointerCoords(point);
-        MotionEvent event = MotionEvent.obtain(lastMouseDown, now, action, 1, pointerProperties, pointerCoords, 0, buttons, 1f, 1f, 0, 0,
+        pointerCoords[0].pressure = action == MotionEvent.ACTION_UP ? 0 : 1;
+        // This event is injected as a touchscreen touch; Android requires buttonState=0.
+        MotionEvent event = MotionEvent.obtain(lastMouseDown, now, action, 1, pointerProperties, pointerCoords, 0, 0, 1f, 1f, 0, 0,
                 InputDevice.SOURCE_TOUCHSCREEN, 0);
         return injectEvent(event);
     }
 
-    private boolean injectScroll(Position position, int hScroll, int vScroll) {
+    private boolean injectScroll(Position position, float hScroll, float vScroll) {
         long now = SystemClock.uptimeMillis();
-        Point point = device.getPhysicalPoint(position);
-        if (point == null) {
+        if (device.getPhysicalPoint(position) == null) {
             // ignore event
             return false;
         }
+        Size screenSize = device.getScreenInfo().getDeviceSize();
+        Point point = new Point(screenSize.getWidth() / 2, screenSize.getHeight() / 2);
         setPointerCoords(point);
-        setScroll(hScroll, vScroll);
+        setScroll(hScroll * SCROLL_SPEED, -vScroll * SCROLL_SPEED);
         MotionEvent event = MotionEvent.obtain(lastMouseDown, now, MotionEvent.ACTION_SCROLL, 1, pointerProperties, pointerCoords, 0, 0, 1f, 1f, 0,
                 0, InputDevice.SOURCE_MOUSE, 0);
         return injectEvent(event);
